@@ -1,0 +1,27 @@
+#!/bin/sh
+
+resolve_link() {
+  $(type -p greadlink readlink | head -1) "$1"
+}
+
+abs_dirname() {
+  local cwd="$(pwd)"
+  local path="$1"
+
+  while [ -n "$path" ]; do
+    cd "${path%/*}"
+    local name="${path##*/}"
+    path="$(resolve_link "$name" || true)"
+  done
+
+  pwd
+  cd "$cwd"
+}
+
+export ROOT_APP=$(abs_dirname $(abs_dirname $0)/../)
+export NGINX="nginx -p $ROOT_APP -c ./config/nginx.conf"
+
+nginx -p $ROOT_APP -c ./config/nginx.conf &
+echo "Started in http://localhost:8080"
+tail -n0 -f $ROOT_APP/logs/error.log # $ROOT_APP/logs/access.log
+nginx -p $ROOT_APP -c ./config/nginx.conf - stop
