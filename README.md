@@ -4,6 +4,7 @@ This projects is a experiment for test nginx, lua and uv.
 
 - No goals
 - Do not use in production
+- For now: only macosx
 
 # Install #
 

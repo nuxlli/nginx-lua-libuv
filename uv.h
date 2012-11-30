@@ -1,3 +1,8 @@
+/**
+ * This header has utility only as reference for mount of the cdef in uv.lua
+ * generated: grep -v "#include" libuv/include/uv.h | cpp | sed -E "s,[A-Z_]+_PRIVATE_[A-Z_]+,,g" | grep -v "^ *#.*" > uv.h
+ */
+ 
 typedef struct ngx_queue_s  ngx_queue_t;
 struct ngx_queue_s {
     ngx_queue_t  *prev;
