@@ -1,4 +1,4 @@
-# Abount #
+# About #
 
 This projects is a experiment for test nginx, lua and uv.
 
