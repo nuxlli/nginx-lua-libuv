@@ -8,6 +8,7 @@ module(...)
 
 function say(...)
   io.write(...)
+  io.write("\n")
 end
 
 local class_mt = {
