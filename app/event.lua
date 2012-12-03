@@ -25,13 +25,37 @@ ffi.cdef([[
   int event_base_loop(event_base, int);
 
   event event_new(event_base, evutil_socket_t, short, event_callback_fn, void *);
+  int event_assign(event, event_base, evutil_socket_t, short, event_callback_fn, void *);
   int event_add(event, const timeval);
   int event_del(event);
 
-  typedef struct my_env {
+  typedef struct env_args {
     event event;
-  } my_env;
+  } env_args;
 
 ]])
 
-return ffi.load('libevent.dylib')
+local utils  = require('utils')
+local Object = require('object')
+local lib    = ffi.load('libevent.dylib')
+
+local Event = Object:extend()
+
+function Event:initialize(base, fd, flags, callback)
+  self.env = ffi.new('event[1]')
+  self.env[0] = lib.event_new(base, fd, flags, callback, self.env)
+  lib.event_add(self.env[0], ffi.new('const timeval'))
+end
+
+local libevent = {
+  lib   = lib,
+  Event = Event
+}
+
+setmetatable(libevent, {
+  __index = function(_, idx)
+    return libevent.lib[idx]
+  end
+})
+
+return libevent

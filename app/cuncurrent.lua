@@ -17,39 +17,50 @@ local context = zmq.zmq_ctx_new()
 local responder = zmq.zmq_socket(context, zmq.ZMQ_REP)
 zmq.zmq_bind(responder, "tcp://*:5555")
 
-local fd = ffi.new('int[?]', 1, -1)
-log(tonumber(fd[0]))
 
-local fd_size = ffi.new('size_t[?]', 1, ffi.sizeof(fd))
-zmq.zmq_getsockopt(responder, zmq.ZMQ_FD, fd, fd_size)
-
-fd = ffi.cast('int', fd[0])
---fd = ffi.cast('int', io.open('uv.h'))
-
-local print_line = function(fd, events, args)
-  local env = ffi.cast('my_env*', args).event
-  local events = ffi.new('int[1]', 1)
-  zmq.zmq_getsockopt(responder, zmq.ZMQ_EVENTS, events, fd_size)
-  log("event", events[0])
-  if bit.band(events[0], zmq.ZMQ_POLLIN) == 1 then
-    local request = ffi.new('zmq_msg_t[1]')
-    zmq.zmq_msg_init(request)
-    zmq.zmq_msg_recv(request, responder, 0)
-    log(ffi.string(request[0]._))
-    zmq.zmq_msg_close(request)
-    event.event_base_loopexit(base, ffi.new('const timeval'))
-    event.event_del(env)
+function msg_recv(resp)
+  local msg   = ""
+  local msg_t = ffi.new('zmq_msg_t[1]')
+  zmq.zmq_msg_init(msg_t)
+  while true do
+    local more = zmq.zmq_msg_recv(msg_t, resp, zmq.ZMQ_DONTWAIT)
+    if more == -1 then break; end
+    msg = (msg .. ffi.string(msg_t[0]._))
   end
+  zmq.zmq_msg_close(msg_t)
+  return msg
+end
+
+function get_fd(resp)
+  msg_recv(resp)
+
+  local fd = ffi.new('int[?]', 1, -1)
+  local fd_size = ffi.new('size_t[?]', 1, ffi.sizeof(fd))
+
+  zmq.zmq_getsockopt(resp, zmq.ZMQ_FD, fd, fd_size)
+
+  return ffi.cast('int', fd[0])
 end
 
 local base  = event.event_base_new()
 local flags = bit.bor(event.EV_READ, event.EV_PERSIST)
 
-local my_env = ffi.new('my_env')
-local env    = event.event_new(base, fd, flags, print_line, my_env)
-my_env.event = env
-event.event_add(env, ffi.new('const timeval'))
-event.event_base_loop(base, 0)
+local print_line = function(fd, events, args)
+  log('print_line', ffi.cast('event', args))
+  local evt      = ffi.new('int[1]', 1)
+  local evt_size = ffi.new('size_t[?]', 1, ffi.sizeof(evt))
+  for i=1,events do
+    zmq.zmq_getsockopt(responder, zmq.ZMQ_EVENTS, evt, evt_size)
+    if bit.band(evt[0], zmq.ZMQ_POLLIN) == 1 then
+      log("print_line", msg_recv(responder))
+    end
+  end
+end
+
+local fd  = get_fd(responder)
+local env = event.Event:new(base, fd, flags, print_line)
+
+assert(event.event_base_loop(base, 0))
 
 zmq.zmq_close(responder)
 zmq.zmq_ctx_destroy(context)
